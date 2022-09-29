@@ -14,7 +14,19 @@ async function getCategories(req, res) {
 
 async function createCategory(req, res) {
   try {
-    const category = res.locals.category;
+    const { name } = res.locals.category;
+    const checkExistingCategory = await dbConnection.query(
+      'SELECT * FROM categories WHERE name = $1',
+      [name]
+    );
+    if (checkExistingCategory.rowCount > 0) {
+      return res
+        .status(409)
+        .send({ message: `Error: Found an existing category with the name: ${name}` });
+    }
+
+    await dbConnection.query('INSERT INTO categories (name) VALUES ($1)', [name]);
+    res.sendStatus(201);
   } catch (error) {
     console.log(error);
     return res
