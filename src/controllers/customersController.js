@@ -22,7 +22,9 @@ async function getCustomers(req, res) {
     // Error when fetching customers from Database
   } catch (error) {
     console.log(error);
-    return res.status(500).send({ message: 'An error occured when fetching games from Database' });
+    return res
+      .status(500)
+      .send({ message: 'An error occured when fetching customers from Database' });
   }
 }
 
@@ -46,7 +48,9 @@ async function getCustomer(req, res) {
     // Error when fetching customer from Database
   } catch (error) {
     console.log(error);
-    return res.status(500).send({ message: 'An error occured when fetching games from Database' });
+    return res
+      .status(500)
+      .send({ message: 'An error occured when fetching customer from Database' });
   }
 }
 
@@ -77,8 +81,44 @@ async function createCustomer(req, res) {
     // Error when inserting customer into Database
   } catch (error) {
     console.log(error);
+    return res
+      .status(500)
+      .send({ message: 'An error occured when inserting customer into Database' });
+  }
+}
+
+async function updateCustomer(req, res) {
+  // Get customer info from locals after middleware validation
+  const { name, phone, cpf, birthday } = res.locals.customer;
+
+  // Get customer id from route parameters
+  const { id } = req.params;
+
+  try {
+    // Check if there's an existing customer with the same cpf
+    const checkExistingCustomer = await dbConnection.query(
+      `SELECT * FROM customers
+      WHERE id <> $1 AND cpf = $2`,
+      [id, cpf]
+    );
+    if (checkExistingCustomer.rowCount > 0) {
+      return res.status(409).send({ message: 'Error: Invalid CPF' });
+    }
+
+    // Update customer in Database
+    await dbConnection.query(
+      `UPDATE customers
+      SET name = $1, phone = $2, cpf = $3, birthday = $4
+      WHERE id = $5`,
+      [name, phone, cpf, birthday, id]
+    );
+    res.sendStatus(200);
+
+    // Error when updating customer from Database
+  } catch (error) {
+    console.log(error);
     return res.status(500).send({ message: 'An error occured when fetching games from Database' });
   }
 }
 
-export { getCustomers, getCustomer, createCustomer };
+export { getCustomers, getCustomer, createCustomer, updateCustomer };
