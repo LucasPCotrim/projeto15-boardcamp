@@ -16,9 +16,10 @@ async function getCategories(req, res) {
 }
 
 async function createCategory(req, res) {
+  // Get category name from locals after middleware validation
+  const { name } = res.locals.category;
+
   try {
-    // Get category name from locals after middleware validation
-    const { name } = res.locals.category;
     // Check Database for existing category with the same name
     const checkExistingCategory = await dbConnection.query(
       'SELECT * FROM categories WHERE name = $1',
