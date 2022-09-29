@@ -12,7 +12,7 @@ const customerSchema = joi.object({
     .string()
     .length(11)
     .pattern(/^[0-9]+$/),
-  birthday: joi.date().format('YYYY-MM-DD').raw().required(),
+  birthday: joi.date().required(),
 });
 
 export default customerSchema;

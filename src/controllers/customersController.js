@@ -32,7 +32,7 @@ async function getCustomer(req, res) {
 
   try {
     // Obtain customer from Database (filter by id)
-    const { row: customer, rowCount } = await dbConnection.query(
+    const { rows: customer, rowCount } = await dbConnection.query(
       'SELECT * FROM customers WHERE id = $1',
       [id]
     );
@@ -50,4 +50,35 @@ async function getCustomer(req, res) {
   }
 }
 
-export { getCustomers, getCustomer };
+async function createCustomer(req, res) {
+  // Get customer from locals after middleware validation
+  const { name, phone, cpf, birthday } = res.locals.customer;
+
+  try {
+    // Check existing customer with same cpf
+    const checkExistingCustomer = await dbConnection.query(
+      `SELECT * FROM customers
+      WHERE cpf = $1`,
+      [cpf]
+    );
+    if (checkExistingCustomer.rowCount > 0) {
+      // Error: Existing customer found
+      return res.status(409).send({ message: 'Error: Customer already in Database' });
+    }
+    // Insert custome into database
+    await dbConnection.query(
+      `INSERT INTO customers
+      (name, phone, cpf, birthday)
+      VALUES ($1, $2, $3, $4)`,
+      [name, phone, cpf, birthday]
+    );
+    return res.sendStatus(201);
+
+    // Error when inserting customer into Database
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send({ message: 'An error occured when fetching games from Database' });
+  }
+}
+
+export { getCustomers, getCustomer, createCustomer };
