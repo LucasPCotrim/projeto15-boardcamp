@@ -27,7 +27,22 @@ async function getCustomers(req, res) {
 }
 
 async function getCustomer(req, res) {
+  // Obtain id from route parameters
+  const { id } = req.params;
+
   try {
+    // Obtain customer from Database (filter by id)
+    const { row: customer, rowCount } = await dbConnection.query(
+      'SELECT * FROM customers WHERE id = $1',
+      [id]
+    );
+    if (rowCount === 0) {
+      // Customer not found
+      return res.status(404).send({ message: 'Error: Customer not found' });
+    }
+    // Return customer
+    res.status(200).send(customer[0]);
+
     // Error when fetching customer from Database
   } catch (error) {
     console.log(error);
