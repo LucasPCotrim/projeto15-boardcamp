@@ -2,26 +2,43 @@ import dbConnection from '../database/pgsql.js';
 
 async function getGames(req, res) {
   // Obtain optional query params
-  const { name } = req.query;
+  const { name, limit, offset } = req.query;
 
   try {
+    // Build query parameters and conditions
+    const whereParams = [];
+    let whereClause = '';
     if (name) {
-      // Obtain games from Database (filter by name)
-      const { rows: games } = await dbConnection.query(
-        `SELECT games.*, categories.name AS "categoryName"
-        FROM games JOIN categories ON categories.id=games."categoryId"
-        WHERE games.name ILIKE $1;`,
-        [`${name}%`]
-      );
-      res.status(200).send(games);
-    } else {
-      // Obtain games from Database
-      const { rows: games } = await dbConnection.query(
-        `SELECT games.*, categories.name AS "categoryName"
-        FROM games JOIN categories ON categories.id=games."categoryId";`
-      );
-      res.status(200).send(games);
+      whereParams.push(`${name}%`);
+      whereClause += `WHERE games.name ILIKE $${whereParams.length}`;
     }
+    const optionalParams = [];
+    let optionalConditions = [];
+    let optionalClause = '';
+    if (limit) {
+      optionalParams.push(limit);
+      optionalConditions.push(`LIMIT $${whereParams.length + optionalParams.length}`);
+    }
+    if (offset) {
+      optionalParams.push(offset);
+      optionalConditions.push(`OFFSET $${whereParams.length + optionalParams.length}`);
+    }
+    if (optionalParams.length > 0) {
+      optionalClause += `${optionalConditions.join(' ')}`;
+    }
+    const params = whereParams.concat(optionalParams);
+
+    // Obtain games from Database
+    const { rows: games } = await dbConnection.query(
+      `SELECT games.*, categories.name AS "categoryName"
+      FROM games JOIN categories
+      ON categories.id=games."categoryId"
+      ${whereClause}
+      ORDER BY id ASC 
+      ${optionalClause}`,
+      params
+    );
+    res.status(200).send(games);
 
     // Error when fetching games from Database
   } catch (error) {

@@ -7,24 +7,41 @@ const timesInMilliseconds = {
 };
 
 async function getRentals(req, res) {
-  const { customerId, gameId } = req.query;
+  // Obtain optional query params
+  const { customerId, gameId, limit, offset } = req.query;
 
   try {
     // Build query parameters and conditions
-    const params = [];
-    const conditions = [];
+    const whereParams = [];
+    const whereConditions = [];
     let whereClause = '';
     if (customerId) {
-      params.push(customerId);
-      conditions.push(`rentals."customerId" = $${params.length}`);
+      whereParams.push(customerId);
+      whereConditions.push(`rentals."customerId" = $${whereParams.length}`);
     }
     if (gameId) {
-      params.push(gameId);
-      conditions.push(`rentals."gameId" = $${params.length}`);
+      whereParams.push(gameId);
+      whereConditions.push(`rentals."gameId" = $${whereParams.length}`);
     }
-    if (params.length > 0) {
-      whereClause += `WHERE ${conditions.join(' AND ')}`;
+    if (whereParams.length > 0) {
+      whereClause += `WHERE ${whereConditions.join(' AND ')}`;
     }
+    const optionalParams = [];
+    let optionalConditions = [];
+    let optionalClause = '';
+    if (limit) {
+      optionalParams.push(limit);
+      optionalConditions.push(`LIMIT $${whereParams.length + optionalParams.length}`);
+    }
+    if (offset) {
+      optionalParams.push(offset);
+      optionalConditions.push(`OFFSET $${whereParams.length + optionalParams.length}`);
+    }
+    if (optionalParams.length > 0) {
+      optionalClause += `${optionalConditions.join(' ')}`;
+    }
+    const params = whereParams.concat(optionalParams);
+
     // Obtain rentals from Database
     const { rows: rentals } = await dbConnection.query(
       `SELECT
@@ -36,6 +53,8 @@ async function getRentals(req, res) {
         JOIN games ON games.id = rentals."gameId"
         JOIN categories ON categories.id = games."categoryId"
       ${whereClause}
+      ORDER BY id ASC 
+      ${optionalClause}
       `,
       params
     );

@@ -1,9 +1,33 @@
 import dbConnection from '../database/pgsql.js';
 
 async function getCategories(req, res) {
+  // Obtain optional query parameters
+  const { limit, offset } = req.query;
+
   try {
+    // Build query parameters and conditions
+    const params = [];
+    let conditions = [];
+    let optionalClause = '';
+    if (limit) {
+      params.push(limit);
+      conditions.push(`LIMIT $${params.length}`);
+    }
+    if (offset) {
+      params.push(offset);
+      conditions.push(`OFFSET $${params.length}`);
+    }
+    if (params.length > 0) {
+      optionalClause += `${conditions.join(' ')}`;
+    }
     // Obtain categories from Database
-    const { rows: categories } = await dbConnection.query('SELECT * FROM categories');
+    const { rows: categories } = await dbConnection.query(
+      `SELECT * FROM categories
+      ORDER BY id ASC 
+      ${optionalClause}
+      `,
+      params
+    );
     return res.status(200).send(categories);
 
     // Error when fetching categories from Database

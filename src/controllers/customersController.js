@@ -2,22 +2,41 @@ import dbConnection from '../database/pgsql.js';
 
 async function getCustomers(req, res) {
   // Obtain optional query params
-  const { cpf } = req.query;
+  const { cpf, limit, offset } = req.query;
 
   try {
+    // Build query parameters and conditions
+    const whereParams = [];
+    let whereClause = '';
     if (cpf) {
-      // Obtain customers from Database (filter by cpf)
-      const { rows: customers } = await dbConnection.query(
-        `SELECT * FROM customers
-        WHERE cpf LIKE $1;`,
-        [`${cpf}%`]
-      );
-      res.status(200).send(customers);
-    } else {
-      // Obtain customers from Database
-      const { rows: customers } = await dbConnection.query(`SELECT * FROM customers`);
-      res.status(200).send(customers);
+      whereParams.push(`${cpf}%`);
+      whereClause += `WHERE cpf LIKE $${whereParams.length}`;
     }
+    const optionalParams = [];
+    let optionalConditions = [];
+    let optionalClause = '';
+    if (limit) {
+      optionalParams.push(limit);
+      optionalConditions.push(`LIMIT $${whereParams.length + optionalParams.length}`);
+    }
+    if (offset) {
+      optionalParams.push(offset);
+      optionalConditions.push(`OFFSET $${whereParams.length + optionalParams.length}`);
+    }
+    if (optionalParams.length > 0) {
+      optionalClause += `${optionalConditions.join(' ')}`;
+    }
+    const params = whereParams.concat(optionalParams);
+
+    // Obtain customers from Database
+    const { rows: customers } = await dbConnection.query(
+      `SELECT * FROM customers
+        ${whereClause}
+        ORDER BY id ASC 
+        ${optionalClause}`,
+      params
+    );
+    res.status(200).send(customers);
 
     // Error when fetching customers from Database
   } catch (error) {
