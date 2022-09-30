@@ -1,4 +1,10 @@
 import dbConnection from '../database/pgsql.js';
+const timesInMilliseconds = {
+  SECOND: 1000,
+  MINUTE: 60 * 1000,
+  HOUR: 3600 * 1000,
+  DAY: 24 * 3600 * 1000,
+};
 
 async function getRentals(req, res) {
   const { customerId, gameId } = req.query;
@@ -19,7 +25,6 @@ async function getRentals(req, res) {
     if (params.length > 0) {
       whereClause += `WHERE ${conditions.join(' AND ')}`;
     }
-
     // Obtain rentals from Database
     const { rows: rentals } = await dbConnection.query(
       `SELECT
@@ -59,7 +64,6 @@ async function createRental(req, res) {
     if (checkCustomer.rowCount === 0) {
       return res.status(400).send({ message: 'Error: Invalid customerId' });
     }
-
     // Check if gameId is valid
     const checkGame = await dbConnection.query(
       `SELECT * FROM games 
@@ -70,7 +74,6 @@ async function createRental(req, res) {
       return res.status(400).send({ message: 'Error: Invalid gameId' });
     }
     const game = checkGame.rows[0];
-
     // Check if gameId is available
     const checkRentals = await dbConnection.query(
       `SELECT id
@@ -101,4 +104,82 @@ async function createRental(req, res) {
   }
 }
 
-export { getRentals, createRental };
+async function concludeRental(req, res) {
+  // Obtain rental id from route parameters
+  const { id } = req.params;
+
+  try {
+    // Check if rental is in the Database
+    const checkRental = await dbConnection.query(
+      `SELECT * FROM rentals
+      WHERE id = $1`,
+      [id]
+    );
+    if (checkRental.rowCount === 0) {
+      return res.status(404).send({ message: 'Error: Rental not found' });
+    }
+    const rental = checkRental.rows[0];
+    // Check if rental is already concluded
+    if (rental.returnDate) {
+      return res.status(400).send({ message: 'Error: Invalid rental id' });
+    }
+    // Calculate delayFee
+    const daysSinceRent = Math.floor(
+      (new Date().getTime() - new Date(rental.rentDate).getTime()) / timesInMilliseconds.DAY
+    );
+    let delayFee = 0;
+    if (daysSinceRent > rental.daysRented) {
+      delayFee = (daysSinceRent - rental.daysRented) * rental.originalPrice;
+    }
+
+    // Update rental
+    await dbConnection.query(
+      `UPDATE rentals
+      SET "returnDate" = NOW(), "delayFee" = $1
+      WHERE id = $2`,
+      [delayFee, id]
+    );
+    res.sendStatus(200);
+
+    // Error when updating rental from Database
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .send({ message: 'An error occured when inserting rental into Database' });
+  }
+}
+
+async function deleteRental(req, res) {
+  // Obtain rental id from route parameters
+  const { id } = req.params;
+
+  try {
+    // Check if rental is in the Database
+    const checkRental = await dbConnection.query(
+      `SELECT * FROM rentals
+      WHERE id = $1`,
+      [id]
+    );
+    if (checkRental.rowCount === 0) {
+      return res.status(404).send({ message: 'Error: Rental not found' });
+    }
+    const rental = checkRental.rows[0];
+    // Check if rental has already been concluded
+    if (!rental.returnDate) {
+      return res.status(400).send({ message: 'Error: Cannot delete unfinished rental' });
+    }
+    // Delete rental from Database
+    await dbConnection.query(`DELETE FROM rentals WHERE id = $1`, [id]);
+    res.sendStatus(200);
+
+    // Error when deleting rental from Database
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .send({ message: 'An error occured when inserting rental into Database' });
+  }
+}
+
+export { getRentals, createRental, concludeRental, deleteRental };
