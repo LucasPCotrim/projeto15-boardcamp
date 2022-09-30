@@ -4,10 +4,10 @@ async function getRentals(req, res) {
   const { customerId, gameId } = req.query;
 
   try {
+    // Build query parameters and conditions
     const params = [];
     const conditions = [];
     let whereClause = '';
-
     if (customerId) {
       params.push(customerId);
       conditions.push(`rentals."customerId" = $${params.length}`);
@@ -45,4 +45,6 @@ async function getRentals(req, res) {
   }
 }
 
-export { getRentals };
+async function createRental(req, res) {}
+
+export { getRentals, createRental };
